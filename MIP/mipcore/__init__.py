@@ -14,4 +14,4 @@ Submódulos:
 from . import tru, precos_basicos, leontief, multiplicadores, sda, cnt, gras, regional
 __all__ = ["tru", "precos_basicos", "leontief", "multiplicadores", "sda", "cnt", "gras",
            "regional"]
-__version__ = "1.5.0"
+__version__ = "1.6.0"

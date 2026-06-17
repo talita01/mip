@@ -169,3 +169,33 @@ def test_regional_2019_autossuficiencia(sys_reg19):
     assert ranking.index("SP") < 3, "SP deveria estar no topo em 2019"
     assert ranking.index("TO") >= 24, "TO deveria estar no fundo em 2019"
     assert ranking.index("AP") >= 24, "AP deveria estar no fundo em 2019"
+
+
+# ---------------- contas regionais, Tipo II e produtos (suporte ao estudo BEVAP) ----------------
+def test_regional_contas(sys_reg, sys_reg19):
+    c = sys_reg19["contas"]
+    assert c is not None and {"x", "vab", "remun", "eob", "imp_prod", "imp_produto", "emp"} <= set(c)
+    assert abs(c["imp_prod"].sum() - 91071) < 100      # impostos s/ produção (base BEVAP: ~R$ 91 bi)
+    assert 100e6 < c["emp"].sum() < 115e6              # ~106 milhões de ocupações em 2019
+    assert sys_reg["contas"] is None                   # 2011 não expõe esse bloco
+
+
+def test_tipo2_fechar_familias(sys_reg19):
+    """Modelo fechado (Tipo II) reproduz o fechamento verificado do motor BEVAP."""
+    c = sys_reg19["contas"]
+    x = c["x"]
+    w = np.divide(c["remun"], np.where(x > 0, x, 1.0))
+    hh = sys_reg19["f_categorias"]["Famílias"]
+    fech = m.multiplicadores.fechar_familias(sys_reg19["A"], w, hh, alpha=1.0)
+    assert 0 < fech["rho"] < 1 and abs(fech["rho"] - 0.706) < 0.005    # raio espectral (BEVAP: 0,71)
+    mI = sys_reg19["L"].sum(0)
+    mII = m.multiplicadores.producao_tipo2(fech)
+    assert (mII >= mI - 1e-9).all()                                    # Tipo II ≥ Tipo I
+    i = m.regional.idx(sys_reg19, "SP", "S20")
+    assert abs(mII[i] - 3.232) < 0.01                                  # S20/SP Tipo II (BEVAP)
+
+
+def test_regional_produtos():
+    p = m.regional.produtos(2019)
+    assert len(p) == 128
+    assert "P054" in {cod for cod, _ in p}             # "Adubos e fertilizantes" (desambigua S21)

@@ -158,6 +158,39 @@ def _ler_vbp_2011(arq):
     return vbp
 
 
+# contas regionais por (UF,setor), aba MIIP SS, colunas 5-1840 (linha 1-indexada do Excel)
+_CONTAS_2019_LINHAS = {"imp_produto": 1846, "vab": 1851, "remun": 1852, "eob": 1853,
+                       "imp_prod": 1854, "x": 1856, "emp": 1858}
+
+
+def _ler_contas_2019(arq):
+    """Vetores de contas por (UF,setor) (N,): VBP, VAB, remunerações, EOB, impostos sobre a
+    produção, impostos sobre o produto e ocupações. Lidos das linhas de totais da aba MIIP SS."""
+    wb = openpyxl.load_workbook(str(arq), read_only=True, data_only=True)
+    ws = wb["MIIP SS"]
+    alvo = set(_CONTAS_2019_LINHAS.values())
+    buf = {}
+    for r, row in enumerate(ws.iter_rows(min_row=1, max_row=max(alvo), min_col=5, max_col=4 + N,
+                                         values_only=True), start=1):
+        if r in alvo:
+            buf[r] = np.array([(v if isinstance(v, (int, float)) else 0.0) for v in row])
+    wb.close()
+    return {k: buf[ln] for k, ln in _CONTAS_2019_LINHAS.items()}
+
+
+def _carregar_contas(ano, usar_cache):
+    """Contas regionais (só 2019; o arquivo de 2011 não traz esse bloco na mesma estrutura)."""
+    if ano != 2019:
+        return None
+    cache = _CACHE / f"iioas_{ano}_contas.npz"
+    if usar_cache and cache.exists():
+        d = np.load(cache)
+        return {k: d[k] for k in d.files}
+    c = _ler_contas_2019(_fonte_2019())
+    np.savez(cache, **c)
+    return c
+
+
 def _carregar_fd(ano, A, usar_cache):
     """Demanda final total e (para 2019) por categoria, com cache em ~/.cache/mipcore."""
     cache_f = _CACHE / f"iioas_{ano}_fd.npz"
@@ -217,9 +250,35 @@ def carregar(ano=2011, usar_cache=True):
         assert not (np.isnan(L).any() or np.isinf(L).any()), "L com NaN/Inf"
 
     f, f_cat = _carregar_fd(ano, A, usar_cache)
+    contas = _carregar_contas(ano, usar_cache)
 
-    return {"ano": ano, "A": A, "L": L, "f": f, "f_categorias": f_cat,
+    return {"ano": ano, "A": A, "L": L, "f": f, "f_categorias": f_cat, "contas": contas,
             "uf": [r[1] for r in regioes], "regioes": regioes, "setores": setores}
+
+
+def produtos(ano=2019):
+    """Lista dos 128 produtos (código, descrição) da classificação da matriz interestadual (2019).
+
+    Permite desambiguar atividades que o nível 68 agrega: ex. `P054` "Adubos e fertilizantes"
+    fica dentro do setor S21 (químicos), e os produtos de milho `P002`/`P032` ajudam a tratar o
+    etanol de milho. Para os coeficientes de uso produto×setor, a aba `MIIP PS` da base traz a
+    matriz completa (128 produtos × 68 setores) — leitura ainda não exposta aqui.
+    """
+    if ano != 2019:
+        raise NotImplementedError("lista de produtos disponível apenas para 2019")
+    cache = _CACHE / f"iioas_{ano}_produtos.json"
+    if cache.exists():
+        return [tuple(x) for x in json.loads(cache.read_text())]
+    wb = openpyxl.load_workbook(str(_fonte_2019()), read_only=True, data_only=True)
+    out = []
+    for row in wb["Produtos"].iter_rows(values_only=True):
+        v = [c for c in row if c not in (None, "")]
+        if len(v) >= 2 and re.fullmatch(r"P\d+", str(v[0])):
+            out.append((str(v[0]), str(v[1])))
+    wb.close()
+    assert len(out) == 128, f"esperados 128 produtos, lidos {len(out)}"
+    cache.write_text(json.dumps(out))
+    return out
 
 
 def demanda_final(sys):

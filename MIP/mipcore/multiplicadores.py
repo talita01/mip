@@ -24,6 +24,37 @@ def multiplicador(coef, L):
     return np.divide(G, np.where(coef != 0, coef, np.nan))
 
 
+def fechar_familias(A, w, c, alpha=1.0):
+    """Modelo fechado em relação às famílias → multiplicadores Tipo II (efeito-renda induzido).
+
+    Endogeniza o consumo das famílias acrescentando a A uma linha de renda e uma coluna de
+    consumo (MILLER; BLAIR, 2009, §2.5 e §6.2; fechamento padrão):
+      A     — coeficientes técnicos n×n;
+      w     — renda das famílias por unidade de produção (linha), ex.: remunerações/produção (n,);
+      c     — cesta de consumo das famílias (coluna); normalizada aqui para somar 1 (n,);
+      alpha — propensão a consumir (0..1; 1.0 = limite superior do efeito induzido).
+    Retorna dict: Abar ((n+1)×(n+1)), Lbar = (I-Abar)⁻¹, rho (raio espectral; estável se <1), n.
+    """
+    A = np.asarray(A, float); n = A.shape[0]
+    c = np.asarray(c, float); s = c.sum(); c = c / s if s else c
+    Abar = np.zeros((n + 1, n + 1))
+    Abar[:n, :n] = A
+    Abar[:n, n] = alpha * c                      # consumo por unidade de renda
+    Abar[n, :n] = np.asarray(w, float)           # renda por unidade de produção
+    rho = float(np.abs(np.linalg.eigvals(Abar)).max())
+    if rho >= 1.0:
+        raise ValueError(f"fechamento instável: raio espectral {rho:.3f} >= 1")
+    Lbar = np.linalg.inv(np.eye(n + 1) - Abar)
+    return {"Abar": Abar, "Lbar": Lbar, "rho": rho, "n": n}
+
+
+def producao_tipo2(fech):
+    """Multiplicador de produção Tipo II por setor (soma de coluna do bloco setorial de Lbar).
+    `fech` = retorno de fechar_familias. A razão Tipo II / Tipo I é o efeito-renda induzido."""
+    n = fech["n"]
+    return fech["Lbar"][:n, :n].sum(0)
+
+
 def rasmussen_hirschman(L):
     """Índices de ligação. Retorna (para_tras, para_frente); >1 indica setor-chave."""
     n = L.shape[0]; Lstar = L.mean()
