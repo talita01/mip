@@ -1,0 +1,13 @@
+[project]
+name = "mipcore"
+dynamic = ["version"]
+description = "Toolkit de Matriz Insumo-Produto (IBGE) reutilizável"
+requires-python = ">=3.9"
+dependencies = ["numpy", "pandas", "scipy", "xlrd>=2.0", "openpyxl"]
+
+[tool.setuptools.packages.find]
+include = ["mipcore*"]
+
+# versão vem de mipcore.__version__ (fonte única; ver MIP/mipcore/__init__.py)
+[tool.setuptools.dynamic]
+version = {attr = "mipcore.__version__"}

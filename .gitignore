@@ -1,0 +1,38 @@
+# Git versiona o MÉTODO e o CÓDIGO (manual .md, mipcore, scripts, testes, docs).
+# Dados e binários grandes ficam fora do git: são reproduzíveis das fontes (IBGE/NEREUS)
+# e já têm versionamento/backup no OneDrive. Para versionar dados, usar git-LFS (decisão à parte).
+
+# dados e fontes (grandes, binários)
+*.pdf
+*.xls
+*.xlsx
+*.rar
+*.zip
+MIP/dados/
+
+# saídas geradas (reprodutíveis pelos scripts)
+MIP/dados/estimadas/
+
+# venvs (NÃO devem estar no OneDrive; o oficial é ~/.venvs/fgv-mip, fora do vault)
+.venv/
+**/.venv/
+venv/
+env/
+
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# config local do Claude (específico da máquina)
+.claude/settings.local.json
+
+# aplicação que está DENTRO da base de referência (deveria ser pasta irmã, fora da mip).
+# Fora do repo da referência até ser realocada; ver COMO-CRIAR-APLICACAO.md.
+reproducao_pib_bio/
+
+# sistema / editores
+.DS_Store
+.obsidian/
