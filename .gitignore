@@ -29,10 +29,6 @@ __pycache__/
 # config local do Claude (específico da máquina)
 .claude/settings.local.json
 
-# aplicação que está DENTRO da base de referência (deveria ser pasta irmã, fora da mip).
-# Fora do repo da referência até ser realocada; ver COMO-CRIAR-APLICACAO.md.
-reproducao_pib_bio/
-
 # sistema / editores
 .DS_Store
 .obsidian/
