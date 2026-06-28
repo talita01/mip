@@ -425,13 +425,79 @@ def colapsar_sp_rb(sys, uf="SP"):
 
 def fechar_familias_regional(sys, alpha=1.0):
     """Fecha um sistema regional nas famílias (multiplicadores Tipo II), aceitando o sistema
-    cheio (27 UFs) ou o colapsado SP×RB. Usa renda w = remunerações/VBP e cesta de consumo =
-    categoria 'Famílias' da demanda final. Devolve o dict de `multiplicadores.fechar_familias`
-    (Abar, Lbar, rho, n). Requer contas regionais e categorias de demanda final (2019).
+    cheio (27 UFs), o colapsado SP×RB ou já com atividades sintéticas inseridas. Usa renda
+    w = remunerações/VBP (ou `coef_satelite['remun']` após inserções) e cesta de consumo =
+    categoria 'Famílias' da demanda final. Devolve o dict de `multiplicadores.fechar_familias`.
     """
-    c, fc = sys.get("contas"), sys.get("f_categorias")
-    if c is None or not fc or "Famílias" not in fc:
-        raise ValueError("fechamento requer contas regionais e a categoria 'Famílias' (2019)")
-    x = c["x"]
-    w = np.divide(c["remun"], np.where(x > 0, x, 1.0))
+    fc = sys.get("f_categorias")
+    if not fc or "Famílias" not in fc:
+        raise ValueError("fechamento requer a categoria 'Famílias' da demanda final (2019)")
+    coef = sys.get("coef_satelite")
+    if coef and "remun" in coef:
+        w = coef["remun"]                                    # já é renda/produção, ordem N
+    else:
+        c = sys.get("contas")
+        if c is None:
+            raise ValueError("fechamento requer contas regionais (2019) ou coef_satelite")
+        x = c["x"]
+        w = np.divide(c["remun"], np.where(x > 0, x, 1.0))
     return multiplicadores.fechar_familias(sys["A"], w, fc["Famílias"], alpha=alpha)
+
+
+def inserir_atividade(sys, compras, vendas=None, satelite=None, consumo_familias=0.0,
+                      nome="nova_atividade"):
+    """Insere uma atividade sintética (nova coluna + linha) num sistema regional — cheio,
+    colapsado SP×RB ou já com outras atividades inseridas —, a partir da estrutura de custos
+    de engenharia da viabilidade. Devolve um `sys` de ordem N+1 (a nova atividade entra como
+    último índice; sua região de pertencimento fica embutida no sourcing de `compras`).
+
+    compras  — (N,) coeficientes de COMPRA da nova atividade por R$ de sua produção, por
+               (região, setor) de origem; o sourcing SP/RB/exterior fica embutido (o que não
+               soma fica como vazamento/importação). Exige Σ compras < 1.
+    vendas   — (N,) opcional: quanto cada setor existente compra da nova atividade por R$ da
+               SUA produção. Padrão zeros (a produção da nova vai à demanda final / transações
+               internas, não a setores de mercado existentes).
+    satelite — dict {conta: coef por R$ de produção} da nova atividade (remun, vab, imp_prod,
+               emp, ...). Padrão 0. Alimenta os geradores Tipo I/II e o fechamento.
+    consumo_familias — demanda final das famílias pela nova atividade (nível), para a cesta de
+               consumo do fechamento Tipo II. Padrão 0.
+    nome     — rótulo da nova atividade.
+
+    Mantém: Σ da nova coluna de A < 1 e L = inv(I-A). Os coeficientes de satélite ficam em
+    sys["coef_satelite"][conta] (vetor N+1: existentes = conta/VBP, nova = `satelite`); as
+    contas (totais) são substituídas por esses coeficientes a partir daqui.
+    """
+    A = sys["A"]; n = A.shape[0]
+    compras = np.asarray(compras, float).ravel()
+    if compras.shape[0] != n:
+        raise ValueError(f"compras deve ter {n} elementos (ordem do sistema)")
+    if compras.sum() >= 1:
+        raise ValueError(f"coluna da nova atividade com Σ compras >= 1 ({compras.sum():.3f})")
+    vendas = np.zeros(n) if vendas is None else np.asarray(vendas, float).ravel()
+    satelite = satelite or {}
+    with np.errstate(all="ignore"):
+        A2 = np.zeros((n + 1, n + 1))
+        A2[:n, :n] = A
+        A2[:n, n] = compras
+        A2[n, :n] = vendas
+        L2 = np.linalg.inv(np.eye(n + 1) - A2)
+    coef = sys.get("coef_satelite")
+    if not coef and sys.get("contas"):                       # 1ª inserção: deriva de conta/VBP
+        x = sys["contas"]["x"]
+        coef = {k: np.divide(v, np.where(x > 0, x, 1.0))
+                for k, v in sys["contas"].items() if k != "x"}
+    coef = {k: np.append(v, float(satelite.get(k, 0.0))) for k, v in (coef or {}).items()}
+    for k in satelite:                                       # contas que só a nova atividade traz
+        if k not in coef:
+            coef[k] = np.append(np.zeros(n), float(satelite[k]))
+    fc = sys.get("f_categorias")
+    fc2 = ({k: np.append(v, consumo_familias if k == "Famílias" else 0.0)
+            for k, v in fc.items()} if fc else None)
+    f2 = np.append(sys["f"], consumo_familias) if sys.get("f") is not None else None
+    setores2 = list(sys["setores"]) + [(len(sys["setores"]) + 1,
+                                        f"X{len(sys['setores']) + 1}", nome)]
+    out = dict(sys)
+    out.update({"A": A2, "L": L2, "f": f2, "f_categorias": fc2, "coef_satelite": coef,
+                "setores": setores2})
+    out.pop("contas", None)              # totais não se estendem; usar coef_satelite daqui
+    return out

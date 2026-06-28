@@ -240,3 +240,28 @@ def test_gerador_tipo2(sys_reg19):
         gII = m.multiplicadores.gerador_tipo2(fech, e)
     assert (gII >= gI - 1e-9).all(), "gerador de emprego Tipo II < Tipo I"
     assert gII.sum() > gI.sum(), "efeito induzido de emprego deveria ser positivo no agregado"
+
+
+def test_inserir_atividade(sys_reg19):
+    """Inserção de atividade sintética: sistema válido, satélite estendido e fechamento compõe."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        s2 = m.regional.colapsar_sp_rb(sys_reg19, "SP")
+        N = s2["A"].shape[0]
+        compras = np.zeros(N); compras[0] = 0.3; compras[68] = 0.2   # 0,3 de SP-S1; 0,2 de RB-S1
+        s3 = m.regional.inserir_atividade(
+            s2, compras, satelite={"remun": 0.25, "emp": 1e-5, "vab": 0.5, "imp_prod": 0.02},
+            nome="etanol_milho")
+        fech = m.regional.fechar_familias_regional(s3, alpha=1.0)
+        mII = m.multiplicadores.producao_tipo2(fech)
+        gI = m.multiplicadores.gerador(s3["coef_satelite"]["emp"], s3["L"])
+        gII = m.multiplicadores.gerador_tipo2(fech, s3["coef_satelite"]["emp"])
+    assert s3["A"].shape == (N + 1, N + 1)
+    assert s3["A"][:, N].sum() < 1 and abs(s3["A"][:, N].sum() - 0.5) < 1e-12
+    I = np.eye(N + 1)
+    with np.errstate(all="ignore"):
+        assert np.abs((I - s3["A"]) @ s3["L"] - I).max() < 1e-6, "L != inv(I-A) após inserção"
+    assert s3["coef_satelite"]["remun"].shape == (N + 1,)
+    assert s3["coef_satelite"]["remun"][N] == 0.25
+    assert 0 < fech["rho"] < 1 and (mII >= s3["L"].sum(0) - 1e-9).all()
+    assert gII[N] >= gI[N] - 1e-12, "Tipo II < Tipo I na atividade inserida"
