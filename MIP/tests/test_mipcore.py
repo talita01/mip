@@ -199,3 +199,44 @@ def test_regional_produtos():
     p = m.regional.produtos(2019)
     assert len(p) == 128
     assert "P054" in {cod for cod, _ in p}             # "Adubos e fertilizantes" (desambigua S21)
+
+
+def test_colapsar_sp_rb(sys_reg19):
+    """Colapsador 27 UFs -> SP × RB: identidades preservadas e VBP conservado (suporte BEVAP)."""
+    NS = m.regional.NS
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        s2 = m.regional.colapsar_sp_rb(sys_reg19, "SP")
+    assert s2["A"].shape == (2 * NS, 2 * NS) and s2["uf"] == ["SP", "RB"]
+    assert s2["A"].sum(0).max() < 1, "coluna de A2 com soma >= 1"
+    I = np.eye(2 * NS)
+    with np.errstate(all="ignore"):
+        assert np.abs((I - s2["A"]) @ s2["L"] - I).max() < 1e-6, "L2 != inv(I-A2)"
+        x2 = s2["L"] @ s2["f"]
+    xc = s2["contas"]["x"]
+    assert np.abs(x2 - xc).sum() / xc.sum() < 1e-3, "L2·f2 não reproduz o VBP agregado"
+    xf = sys_reg19["contas"]["x"]; sp = sys_reg19["uf"].index("SP")
+    assert abs(xc.sum() - xf.sum()) / xf.sum() < 1e-9, "VBP total não conservado"
+    assert abs(xc[:NS].sum() - xf[sp * NS:(sp + 1) * NS].sum()) / xf.sum() < 1e-9, "VBP de SP não conservado"
+    # o sistema colapsado também fecha nas famílias e dá Tipo II >= Tipo I
+    fech2 = m.regional.fechar_familias_regional(s2, alpha=1.0)
+    assert 0 < fech2["rho"] < 1
+    mII = m.multiplicadores.producao_tipo2(fech2); mI = s2["L"].sum(0)
+    assert (mII >= mI - 1e-9).all(), "Tipo II < Tipo I no sistema SP×RB"
+
+
+def test_gerador_tipo2(sys_reg19):
+    """Geradores Tipo II: consistência com producao_tipo2 e induzido não-negativo (suporte BEVAP)."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fech = m.regional.fechar_familias_regional(sys_reg19, alpha=1.0)
+        n = fech["n"]
+        g1 = m.multiplicadores.gerador_tipo2(fech, np.ones(n))
+        assert np.allclose(g1, m.multiplicadores.producao_tipo2(fech), atol=1e-9), \
+            "gerador Tipo II com coef unitário deveria reproduzir producao_tipo2"
+        c = sys_reg19["contas"]; x = c["x"]
+        e = np.divide(c["emp"], np.where(x > 0, x, 1.0))       # emprego por unidade de produção
+        gI = m.multiplicadores.gerador(e, sys_reg19["L"])
+        gII = m.multiplicadores.gerador_tipo2(fech, e)
+    assert (gII >= gI - 1e-9).all(), "gerador de emprego Tipo II < Tipo I"
+    assert gII.sum() > gI.sum(), "efeito induzido de emprego deveria ser positivo no agregado"

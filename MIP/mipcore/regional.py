@@ -380,3 +380,58 @@ def mpm(M):
 def agregar_uf(M):
     """Agrega uma matriz N×N para 27×27 somando os blocos por par de UFs."""
     return M.reshape(NR, NS, NR, NS).sum(axis=(1, 3))
+
+
+# ---------------- colapso para 2 regiões (SP × RB) e fechamento Tipo II ----------------
+def colapsar_sp_rb(sys, uf="SP"):
+    """Colapsa o sistema inter-regional de 27 UFs em 2 regiões: a UF dada (ex. SP) e o Resto
+    do Brasil (RB = as 26 demais), preservando os 68 setores. Agrega FLUXOS (Z = A·diag(VBP)) e
+    totais — não coeficientes, que não somam linearmente —, recompõe A2 = Z2·diag(1/VBP2),
+    L2 = inv(I-A2), demanda final e contas-satélite, e devolve um `sys` de ordem 2·68 = 136 no
+    mesmo formato de `carregar`, com NR=2. Requer as contas regionais (VBP), só em 2019.
+
+    Preserva as identidades: soma de coluna de A2 < 1; L2 = inv(I-A2); L2·f2 reproduz o VBP
+    agregado; e o VBP total e o da UF alvo são conservados na agregação. As funções genéricas
+    de `multiplicadores` operam sobre `sys["L"]` de qualquer ordem; para remodelar use
+    `.reshape(sys["NR"], sys["NS"])`.
+    """
+    if sys.get("contas") is None:
+        raise ValueError("colapso SP×RB requer as contas regionais (use carregar(2019))")
+    if uf not in sys["uf"]:
+        raise ValueError(f"UF {uf!r} não está no sistema")
+    x = sys["contas"]["x"]                                    # VBP por (UF, setor), N
+    Z = sys["A"] * x[None, :]                                 # fluxos intermediários N×N
+    grupo = np.ones(NR, dtype=int)                            # 1 = RB
+    grupo[sys["uf"].index(uf)] = 0                            # 0 = UF alvo
+    G = 2
+    P = np.zeros((G * NS, N))                                 # agrega região→grupo, mantém setor
+    for r in range(NR):
+        P[grupo[r] * NS + np.arange(NS), r * NS + np.arange(NS)] = 1.0
+    Z2 = P @ Z @ P.T                                          # fluxos agregados 136×136
+    x2 = P @ x                                                # VBP agregado 136
+    pos = x2 > 0
+    A2 = np.zeros((G * NS, G * NS))
+    with np.errstate(all="ignore"):   # warnings de BLAS no matmul são benignos neste ambiente
+        A2[:, pos] = Z2[:, pos] / x2[pos][None, :]
+        L2 = np.linalg.inv(np.eye(G * NS) - A2)
+        f2, contas2 = P @ sys["f"], {k: P @ v for k, v in sys["contas"].items()}
+        f_cat2 = ({k: P @ v for k, v in sys["f_categorias"].items()}
+                  if sys.get("f_categorias") else None)
+    return {"ano": sys["ano"], "A": A2, "L": L2, "f": f2, "f_categorias": f_cat2,
+            "contas": contas2, "uf": [uf, "RB"],
+            "regioes": [("R1", uf, uf), ("R2", "RB", "Resto do Brasil")],
+            "setores": sys["setores"], "NR": G, "NS": NS}
+
+
+def fechar_familias_regional(sys, alpha=1.0):
+    """Fecha um sistema regional nas famílias (multiplicadores Tipo II), aceitando o sistema
+    cheio (27 UFs) ou o colapsado SP×RB. Usa renda w = remunerações/VBP e cesta de consumo =
+    categoria 'Famílias' da demanda final. Devolve o dict de `multiplicadores.fechar_familias`
+    (Abar, Lbar, rho, n). Requer contas regionais e categorias de demanda final (2019).
+    """
+    c, fc = sys.get("contas"), sys.get("f_categorias")
+    if c is None or not fc or "Famílias" not in fc:
+        raise ValueError("fechamento requer contas regionais e a categoria 'Famílias' (2019)")
+    x = c["x"]
+    w = np.divide(c["remun"], np.where(x > 0, x, 1.0))
+    return multiplicadores.fechar_familias(sys["A"], w, fc["Famílias"], alpha=alpha)

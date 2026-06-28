@@ -55,6 +55,21 @@ def producao_tipo2(fech):
     return fech["Lbar"][:n, :n].sum(0)
 
 
+def gerador_tipo2(fech, coef):
+    """Gerador Tipo II (direto+indireto+induzido) de uma variável com coeficientes 'coef'
+    (por unidade de produção, n,): G2_j = Σ_i coef_i · Lbar_ij, sobre o bloco setorial n×n da
+    inversa aumentada do fechamento nas famílias. Estende `gerador` ao efeito-renda induzido;
+    com coef unitário reproduz `producao_tipo2`. A parcela induzida é gerador_tipo2 − gerador."""
+    n = fech["n"]
+    return gerador(np.asarray(coef, float), fech["Lbar"][:n, :n])
+
+
+def multiplicador_tipo2(fech, coef):
+    """Multiplicador Tipo II de uma variável: gerador Tipo II / efeito direto (coef_j)."""
+    coef = np.asarray(coef, float)
+    return np.divide(gerador_tipo2(fech, coef), np.where(coef != 0, coef, np.nan))
+
+
 def rasmussen_hirschman(L):
     """Índices de ligação. Retorna (para_tras, para_frente); >1 indica setor-chave."""
     n = L.shape[0]; Lstar = L.mean()
