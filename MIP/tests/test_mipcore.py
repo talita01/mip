@@ -63,6 +63,23 @@ def test_multiplicadores():
     assert tras.shape == frente.shape == (len(mat["atividades"]),)
 
 
+def test_ligacoes_puras_ghs_forma_fechada():
+    """Ligações puras GHS (Guilhoto-Sonis-Hewings) contra a forma fechada de 2 setores.
+    Para j=0: PBL = Y0*A10/(1-A11); PFL = A01/(1-A00) * 1/(1-A11) * Y1.
+    Referência: Guilhoto, Sonis, Hewings, Martins (índices de ligação, eqs. 14-15);
+    Sonis, Hewings & Guo (linkages/key sectors)."""
+    A = np.array([[0.2, 0.3], [0.4, 0.1]]); Y = [100.0, 50.0]
+    got = m.multiplicadores.ligacoes_puras_ghs(A, Y, 0)
+    PBL = Y[0] * A[1, 0] / (1 - A[1, 1])
+    PFL = A[0, 1] / (1 - A[0, 0]) * 1 / (1 - A[1, 1]) * Y[1]
+    assert abs(got["PBL"] - PBL) < 1e-9
+    assert abs(got["PFL"] - PFL) < 1e-9
+    assert abs(got["PTL"] - (PBL + PFL)) < 1e-9
+    # PTLN normaliza pela média -> media(PTLN) == 1 por construção
+    g = m.multiplicadores.ghs_todos(A, Y)
+    assert abs(g["PTLN"].mean() - 1) < 1e-9
+
+
 # ---------------- GRAS ----------------
 def test_gras_exemplo_lenzen():
     """Lenzen, Wood & Gallego (2007), eq. (2), p. 463: estimativa que já satisfaz as
