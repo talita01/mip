@@ -1,59 +1,54 @@
 """Configuracao de coleta do pytest para o mipcore.
 
-Varios testes carregam dados brutos pesados (IIOAS_BRUF_2019.xlsx ~115 MB, TRU
-68_tab*_20XX.xls, matriz IIOAS 2011) que NAO estao versionados no git (dado
-grande fica fora do repo: cache local ~/.cache/mipcore e dados/brutos/). Numa
-maquina de desenvolvimento com os dados, todos rodam; num runner limpo de CI os
-que dependem de dado sao PULADOS na coleta — o CI valida a logica que independe
-de dado externo (formas fechadas, GRAS sintetico de Lenzen, versao/modulos) sem
-falhar por dado ausente.
+Dois grupos de dado, com disponibilidade diferente:
 
-A deteccao replica os caminhos reais de resolucao do mipcore (tru.DADOS,
-regional._ARQ_2011, regional._XLSX_2019). Pular na coleta evita o problema de
-cache de fixture de escopo modulo (uma fixture que falha por dado ausente
-marcaria como ERROR todos os testes seguintes que a reusam). Defina
-MIPCORE_EXIGIR_DADOS=1 para exigir os dados (a ausencia volta a ser erro).
+1. TRU nacional nivel 68 do IBGE (68_tab*_20XX.xls, ~3,5 MB, publica) — VERSIONADA
+   no git. Os testes nacionais (identidades TRU, Leontief, precos basicos,
+   multiplicadores, GRAS) rodam sempre, inclusive no CI.
+
+2. Matrizes IIOAS regionais (RBERU 2011 ~124 MB, BRUF 2019 ~99 MB) — NAO
+   versionadas (grandes; ficam no cache local / raiz do repo, fora do git). Os
+   testes regionais sao PULADOS num runner limpo de CI e rodam so na maquina de
+   desenvolvimento que tem as matrizes.
+
+A deteccao replica os caminhos reais de resolucao do mipcore. Pular na coleta
+evita o problema de cache de fixture de escopo modulo. MIPCORE_EXIGIR_DADOS=1
+exige TUDO (a ausencia de qualquer dado vira erro).
 """
 import os
 import pytest
 
-# Testes que dependem de dado bruto nao-versionado (derivado do que falha num
-# checkout limpo). Mantido explicito para que o skip seja deterministico e nao
-# dependa de capturar excecao em fase de fixture cacheada.
-_REQUER_DADOS = {
-    "test_tru_identidades", "test_leontief_controles", "test_precos_basicos_hibrido",
-    "test_multiplicadores", "test_gras_estimar_2022", "test_regional_produtos",
-    "test_regional_estrutura", "test_regional_autossuficiencia_vs_artigo",
-    "test_regional_indices_e_blocos", "test_regional_extracao",
-    "test_regional_2019_estrutura", "test_regional_demanda_final",
-    "test_regional_extracao_usa_f_real", "test_regional_2019_autossuficiencia",
-    "test_regional_contas", "test_tipo2_fechar_familias", "test_colapsar_sp_rb",
-    "test_gerador_tipo2", "test_inserir_atividade",
+# Testes que dependem das MATRIZES IIOAS REGIONAIS (nao-versionadas). Os demais
+# dependem so da TRU nacional, que e versionada e esta sempre presente.
+_REQUER_IIOAS_REGIONAL = {
+    "test_regional_produtos", "test_regional_estrutura",
+    "test_regional_autossuficiencia_vs_artigo", "test_regional_indices_e_blocos",
+    "test_regional_extracao", "test_regional_2019_estrutura",
+    "test_regional_demanda_final", "test_regional_extracao_usa_f_real",
+    "test_regional_2019_autossuficiencia", "test_regional_contas",
+    "test_tipo2_fechar_familias", "test_colapsar_sp_rb", "test_gerador_tipo2",
+    "test_inserir_atividade",
 }
 
 
-def _dados_presentes():
-    """Ha ALGUM dado bruto do mipcore acessivel? Replica a resolucao real de
-    caminho dos modulos tru e regional. Se nenhum existir, estamos num checkout
-    limpo (CI) e os testes que dependem de dado devem ser pulados."""
+def _iioas_regional_presente():
+    """As matrizes IIOAS regionais (2011 e/ou 2019) existem? Replica a resolucao
+    real de caminho do mipcore.regional."""
     try:
-        import mipcore.tru as _tru
         import mipcore.regional as _reg
     except Exception:
         return False
-    candidatos = [
-        _tru.DADOS / "68_tab1_2019.xls",          # TRU nacional 2019
-        _reg._ARQ_2011,                            # matriz IIOAS 2011
-    ]
-    candidatos += list(getattr(_reg, "_XLSX_2019", []))  # IIOAS 2019 (cache/tmp)
+    candidatos = [_reg._ARQ_2011]
+    candidatos += list(getattr(_reg, "_XLSX_2019", []))
     return any(p.exists() for p in candidatos)
 
 
 def pytest_collection_modifyitems(config, items):
-    if os.environ.get("MIPCORE_EXIGIR_DADOS") == "1" or _dados_presentes():
-        return  # dev com dados, ou exigencia explicita: roda tudo
-    skip = pytest.mark.skip(reason="dado bruto nao-versionado ausente (checkout "
-                                   "limpo de CI); MIPCORE_EXIGIR_DADOS=1 para exigir")
+    if os.environ.get("MIPCORE_EXIGIR_DADOS") == "1" or _iioas_regional_presente():
+        return  # dev com as matrizes, ou exigencia explicita: roda tudo
+    skip = pytest.mark.skip(reason="matriz IIOAS regional nao-versionada ausente "
+                                   "(checkout limpo de CI); MIPCORE_EXIGIR_DADOS=1 para exigir")
     for item in items:
-        if item.originalname in _REQUER_DADOS or item.name.split("[")[0] in _REQUER_DADOS:
+        nome = getattr(item, "originalname", None) or item.name.split("[")[0]
+        if nome in _REQUER_IIOAS_REGIONAL:
             item.add_marker(skip)

@@ -13,6 +13,17 @@ MIP/dados/
 # saídas geradas (reprodutíveis pelos scripts)
 MIP/dados/estimadas/
 
+# EXCEÇÃO: os dados brutos NACIONAIS do IBGE (TRU nível 68, MIP 2015/2010,
+# tabelas de nível) são PÚBLICOS e LEVES — dados/brutos/ inteiro tem ~15 MB,
+# nenhum arquivo acima de 1,8 MB. São versionados para os testes de identidade
+# do mipcore e a regressão do pib-bioeconomia rodarem no CI (senão dependeriam
+# de dado que só existe na máquina local). Ficam FORA: as saídas geradas
+# (dados/estimadas/, reprodutíveis pelos scripts) e as matrizes IIOAS regionais
+# pesadas (99/124 MB, .rar/.xlsx na raiz do repo, pegas por *.rar / *.xlsx acima).
+!MIP/dados/
+!MIP/dados/brutos/
+!MIP/dados/brutos/**
+
 # venvs (NÃO devem estar no OneDrive; o oficial é ~/.venvs/fgv-mip, fora do vault)
 .venv/
 **/.venv/
