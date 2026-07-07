@@ -1,0 +1,28 @@
+name: testes
+# Roda os 28 testes do mipcore (identidades TRU, controles Leontief, aditividade
+# e telescopagem de cadeia) a cada push/PR. Verde = a consistencia contabil do
+# nucleo segue valendo e o pacote instala do zero numa maquina limpa.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: MIP
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar mipcore
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest
+      - name: Rodar testes
+        run: pytest -q
