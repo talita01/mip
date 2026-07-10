@@ -1,0 +1,12 @@
+{
+ "arquivo": "multiplicadores_tipo1_2019.npz",
+ "ano": 2019,
+ "n_atividades": 68,
+ "sha256_arquivo": "b3b36ff8e70308e1053e695dc7b80a64cc7269b73303d653b9a946b3a0ad4659",
+ "gerado_com": {
+  "numpy": "2.4.6",
+  "mipcore": "1.9.0",
+  "python": "3.11"
+ },
+ "nota": "SHA-256 valida integridade do .npz; a reproducao da computacao e por np.allclose (rtol 1e-9), robusta a versao de BLAS."
+}

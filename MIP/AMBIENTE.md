@@ -61,7 +61,14 @@ Verificação no `.venv` de `~/FGV-Dev/mip/MIP` (não o venv oficial `~/.venvs/f
   reproduz; o do job `faixas`, que o pacote instala do zero no Python mínimo suportado.
   O lock oficial (numpy 2.5.1, scipy 1.18.0) reproduz a suíte em Python 3.13 — verificado
   em venv limpo; **exige Python ≥3.12** (numpy 2.5.1 não tem wheel para 3.11).
-- Contagem: **40/40** local (dados regionais presentes); **26/26** num runner limpo de CI,
+- **Golden regression no núcleo** (`tests/test_golden_multiplicadores.py` +
+  `tests/golden/`): congela o vetor de multiplicadores de produção Tipo I e os índices
+  de Rasmussen-Hirschman da TRU nacional 2019 num `.npz` versionado, com SHA-256 no
+  manifesto `.sha256.json`. Dois contratos: integridade (checksum do arquivo) e reprodução
+  (np.allclose rtol 1e-9 — não byte-exato, pois numpy 2.4.6 e 2.5.1 batem a ~1e-15 mas com
+  bytes distintos). Pega regressão silenciosa que preserve as identidades mas mude os
+  valores. Verificado por mutação (`L.sum(0)`→`L.sum(1)` derruba o teste).
+- Contagem: **44/44** local (dados regionais presentes); **30/30** num runner limpo de CI,
   onde o `conftest` pula os 14 testes regionais (matrizes IIOAS não-versionadas).
 
 ## Regenerar o lock (após mudar dependências)
