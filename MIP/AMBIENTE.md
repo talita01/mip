@@ -12,7 +12,7 @@ source ~/.venvs/fgv-mip/bin/activate
 cd ~/FGV-Dev/mip/MIP
 pip install -r requirements.lock
 pip install -e .
-pytest tests/ -v          # esperado: 35 passed
+pytest tests/ -v          # esperado: 40 passed
 ```
 
 ## Estado verificado (2026-07-06)
@@ -46,6 +46,16 @@ Verificação no `.venv` de `~/FGV-Dev/mip/MIP` (não o venv oficial `~/.venvs/f
   Leontief `L·f=g`, reconciliação por categoria (caminho independente) e encadeamento da
   série. Dados TRU "ano anterior" versionados: roda no CI limpo.
 - Suíte: **35/35** testes passam em ~3s.
+
+## Auditoria de método (2026-07-10)
+
+- **Cobertura de `cnt.py`** (antes sem teste): novo `tests/test_cnt.py` com 5 testes do
+  leitor das Contas Nacionais Trimestrais (SIDRA). O `urlopen` é substituído por FIXTURE
+  no formato real da API (capturado do SIDRA em 2026-07-10) — sem dependência de rede,
+  roda no CI limpo. Trava: parsing fiel, filtragem de valores ausentes ("...", "..", "-"),
+  construção da URL (sufixo `d/` muda com a tabela: 1846→0 decimais, 1620→2) e default de
+  12 setores. `cnt.py` fonte não foi alterado.
+- Suíte: **40/40** testes passam em ~3s (com dados regionais presentes).
 
 ## Regenerar o lock (após mudar dependências)
 
