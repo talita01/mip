@@ -1,0 +1,12 @@
+{
+ "arquivo": "multiplicadores_tipo1_2015.npz",
+ "ano": 2015,
+ "n_atividades": 68,
+ "sha256_arquivo": "458406026f52d41186d3bee652e449ecab111fd5fd36a91d375fb33521961a21",
+ "gerado_com": {
+  "numpy": "2.4.6",
+  "mipcore": "1.9.0",
+  "python": "3.11"
+ },
+ "nota": "SHA-256 valida integridade; reproducao por np.allclose rtol 1e-9."
+}

@@ -1,0 +1,15 @@
+{
+ "arquivo": "multiplicadores_tipo2_2019.npz",
+ "ano": 2019,
+ "n_atividades": 68,
+ "sha256_arquivo": "4b3924ddad4e6b70222273102c48d0722c7f4a9c59c9bd665c8e33675db8c7d1",
+ "rho_fechamento": 0.708841,
+ "fonte_w": "remuneracoes/producao (68_tab2 aba VA, offset 1)",
+ "fonte_c": "consumo das familias (DF col 'familias') via market-share D",
+ "gerado_com": {
+  "numpy": "2.4.6",
+  "mipcore": "1.9.0",
+  "python": "3.11"
+ },
+ "nota": "SHA-256 valida integridade; reproducao por np.allclose rtol 1e-9."
+}

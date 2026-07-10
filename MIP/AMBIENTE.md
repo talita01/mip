@@ -71,6 +71,21 @@ Verificação no `.venv` de `~/FGV-Dev/mip/MIP` (não o venv oficial `~/.venvs/f
 - Contagem: **44/44** local (dados regionais presentes); **30/30** num runner limpo de CI,
   onde o `conftest` pula os 14 testes regionais (matrizes IIOAS não-versionadas).
 
+## Auditoria de método (2026-07-10, golden estendido)
+
+- **Golden Tipo II + geradores** (`tests/test_golden_tipo2.py` +
+  `tests/golden/multiplicadores_tipo2_2019.npz`): estende o golden ao modelo fechado nas
+  famílias. Congela o multiplicador de produção Tipo II e os geradores de VA e renda (2019).
+  O `w` do fechamento (remunerações/produção) é lido da aba VA da `68_tab2` (offset de
+  coluna 1, alinhado contra o VAB); o `c` (cesta de consumo) vem da coluna "familias" da DF
+  via market-share. Fechamento estável (rho≈0,71, igual ao BEVAP); II/I médio ≈1,63.
+  Verificado por mutação (fatiar Lbar errado derruba o teste).
+- **Golden multi-ano**: `test_golden_multiplicadores.py` agora é parametrizado em
+  **2015 e 2019** (`.npz` + manifesto por ano). Congelar mais de um ano guarda regressão no
+  carregamento por ano — bug que afete só a leitura de um ano passaria despercebido com um
+  único ano congelado.
+- Contagem: **52/52** local; **38/38** num runner limpo de CI (14 regionais pulados).
+
 ## Regenerar o lock (após mudar dependências)
 
 Com o ambiente atualizado e a suíte passando, refazer o fechamento transitivo das deps
