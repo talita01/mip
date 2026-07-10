@@ -12,7 +12,7 @@ source ~/.venvs/fgv-mip/bin/activate
 cd ~/FGV-Dev/mip/MIP
 pip install -r requirements.lock
 pip install -e .
-pytest tests/ -v          # esperado: 27 passed
+pytest tests/ -v          # esperado: 35 passed
 ```
 
 ## Estado verificado (2026-07-06)
@@ -22,6 +22,30 @@ pytest tests/ -v          # esperado: 27 passed
 - Suíte: 27/27 testes passam, incluindo validação externa contra Lenzen et al. (2007, GRAS)
   e Haddad et al. (2017, ranking de autossuficiência por UF no IIOAS).
 - Log: `20_Recursos/metodologias/log-suite-mipcore-2026-07-06.txt` no vault.
+
+## Estado verificado (2026-07-08, `.venv` do repo)
+
+Verificação no `.venv` de `~/FGV-Dev/mip/MIP` (não o venv oficial `~/.venvs/fgv-mip`):
+
+- Python 3.11.15; numpy 2.4.6, scipy 1.17.1, pandas 2.3.3
+- mipcore 1.9.0
+- Suíte: 28/28 testes passam em ~3s (o 28º, `test_ligacoes_puras_ghs_forma_fechada`, entrou no commit bf7efae de 06/07, mesmo dia do carimbo acima).
+- As versões de pacotes acima diferem do `requirements.lock` (dentro das faixas do `pyproject`, fora do lock); a reprodução exata do lock só é garantida no venv oficial.
+
+## Auditoria de método (2026-07-08)
+
+- **Correção GHS** em `multiplicadores.ligacoes_puras_ghs`: o termo PBL (ligação pura
+  para trás) estava sem o fator interno `Dj = 1/(1-Ajj)`, subestimando a ligação. Forma
+  canônica reposta: `PBL = Dr·Arj·Dj·Yj` (GUILHOTO, 2011, eqs. 6.23-6.24; GUILHOTO et al.,
+  MIP-Nordeste, eqs. 109-110). Verificado por aritmética racional exata em caso 3×3.
+  Novo teste `test_ligacoes_puras_ghs_propriedades_independentes` blinda a propriedade por
+  via externa ao código (valores racionais exatos, reconstituição de Guilhoto eq. 6.22,
+  invariância a permutação de rótulos).
+- **Cobertura de `sda.py`** (antes sem teste): novo `tests/test_sda.py` com 6 testes —
+  aditividade, formas polares independentes (Dietzenbacher & Los, 1998), consistência
+  Leontief `L·f=g`, reconciliação por categoria (caminho independente) e encadeamento da
+  série. Dados TRU "ano anterior" versionados: roda no CI limpo.
+- Suíte: **35/35** testes passam em ~3s.
 
 ## Regenerar o lock (após mudar dependências)
 

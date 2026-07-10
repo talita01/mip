@@ -65,12 +65,14 @@ def test_multiplicadores():
 
 def test_ligacoes_puras_ghs_forma_fechada():
     """Ligações puras GHS (Guilhoto-Sonis-Hewings) contra a forma fechada de 2 setores.
-    Para j=0: PBL = Y0*A10/(1-A11); PFL = A01/(1-A00) * 1/(1-A11) * Y1.
-    Referência: Guilhoto, Sonis, Hewings, Martins (índices de ligação, eqs. 14-15);
-    Sonis, Hewings & Guo (linkages/key sectors)."""
+    Forma canônica (GUILHOTO, 2011, eqs. 6.23-6.24; GUILHOTO et al., MIP-Nordeste, eqs.
+    109-110), com Dj=1/(1-Ajj), Dr=1/(1-Arr) e PBL/PFL simétricas em Dj e Dr:
+      PBL = 1/(1-A00) * A10/(1-A11) * Y0   (o fator 1/(1-A00)=Dj antes faltava);
+      PFL = 1/(1-A00) * A01/(1-A11) * Y1.
+    Corrigido na auditoria 2026-07-08 (o teste anterior codificava a mesma omissão do PBL)."""
     A = np.array([[0.2, 0.3], [0.4, 0.1]]); Y = [100.0, 50.0]
     got = m.multiplicadores.ligacoes_puras_ghs(A, Y, 0)
-    PBL = Y[0] * A[1, 0] / (1 - A[1, 1])
+    PBL = 1 / (1 - A[0, 0]) * A[1, 0] / (1 - A[1, 1]) * Y[0]
     PFL = A[0, 1] / (1 - A[0, 0]) * 1 / (1 - A[1, 1]) * Y[1]
     assert abs(got["PBL"] - PBL) < 1e-9
     assert abs(got["PFL"] - PFL) < 1e-9
@@ -78,6 +80,54 @@ def test_ligacoes_puras_ghs_forma_fechada():
     # PTLN normaliza pela média -> media(PTLN) == 1 por construção
     g = m.multiplicadores.ghs_todos(A, Y)
     assert abs(g["PTLN"].mean() - 1) < 1e-9
+
+
+def test_ligacoes_puras_ghs_propriedades_independentes():
+    """Blindagem da PBL/PFL GHS por propriedades que NÃO reescrevem a fórmula do código.
+
+    A brecha da auditoria 2026-07-08 foi um teste cuja fórmula de referência copiava a
+    mesma omissão do código (faltava Dj no PBL); passar não provava nada. Aqui a
+    referência é externa ao código por três vias distintas:
+      (1) valor racional EXATO (fractions) de um caso 3x3 com j interior, computado por
+          decomposição em blocos independente — PBL(j=1) = 8000/213, PFL(j=1) = 44000/639;
+      (2) identidade de reconstituição de Guilhoto (2011, eq. 6.22): a produção total do
+          setor j se decompõe em Xj = Djj*Dj*Yj + Djj*Dj*Ajr*Dr*Yr, com Djj=(I-Ajj-...)^-1;
+          aqui checamos a forma reduzida Xj = L[j,:] @ Y (Leontief) contra os blocos;
+      (3) invariância a permutação de rótulos: PBL/PFL de um setor não mudam se a ordem
+          dos setores do sistema for permutada.
+    """
+    A = np.array([[0.20, 0.30, 0.10],
+                  [0.40, 0.10, 0.20],
+                  [0.10, 0.20, 0.10]])
+    Y = np.array([100.0, 50.0, 30.0])
+
+    # (1) valores racionais exatos (derivados por Gauss-Jordan em Fraction, ver auditoria)
+    from fractions import Fraction as _F
+    got1 = m.multiplicadores.ligacoes_puras_ghs(A, Y, 1)
+    assert abs(got1["PBL"] - float(_F(8000, 213))) < 1e-9
+    assert abs(got1["PFL"] - float(_F(44000, 639))) < 1e-9
+
+    # (2) reconstituição via Leontief: a soma do vetor de produção do bloco {j}+{r}
+    #     partindo de Y tem de bater com X = (I-A)^-1 Y no elemento j.
+    L = np.linalg.inv(np.eye(3) - A)
+    X = L @ Y
+    j = 1
+    r = [k for k in range(3) if k != j]
+    Ajj = A[np.ix_([j], [j])]; Arr = A[np.ix_(r, r)]
+    Ajr = A[np.ix_([j], r)]; Arj = A[np.ix_(r, [j])]
+    Dj = np.linalg.inv(np.eye(1) - Ajj); Dr = np.linalg.inv(np.eye(2) - Arr)
+    # Xj pela forma particionada de Miller-Blair/GHS (eq. 6.22 reduzida ao bloco j):
+    Djj = np.linalg.inv(np.eye(1) - Dj @ Ajr @ Dr @ Arj)
+    Xj_part = float((Djj @ Dj @ (np.array([[Y[j]]]) + Ajr @ Dr @ Y[r].reshape(-1, 1))).sum())
+    assert abs(Xj_part - X[j]) < 1e-9
+
+    # (3) invariância a permutação de rótulos
+    perm = [2, 0, 1]
+    Ap = A[np.ix_(perm, perm)]; Yp = Y[perm]
+    jp = perm.index(1)  # onde o setor '1' foi parar
+    gotp = m.multiplicadores.ligacoes_puras_ghs(Ap, Yp, jp)
+    assert abs(gotp["PBL"] - got1["PBL"]) < 1e-9
+    assert abs(gotp["PFL"] - got1["PFL"]) < 1e-9
 
 
 # ---------------- GRAS ----------------

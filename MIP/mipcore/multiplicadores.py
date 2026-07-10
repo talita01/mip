@@ -88,7 +88,11 @@ def ligacoes_puras_ghs(A, Y, j):
     Dj = np.linalg.inv(np.eye(1) - Ajj)
     Dr = np.linalg.inv(np.eye(n - 1) - Arr)
     Yj = np.array([[Y[j]]]); Yr = np.array(Y)[r].reshape(-1, 1)
-    PBL = float((Dr @ Arj @ Yj).sum())        # ligação pura para trás
+    # Forma canônica GHS (GUILHOTO, 2011, eqs. 6.23-6.24; GUILHOTO et al., MIP-Nordeste,
+    # 2010/2004, eqs. 109-110): PBL = Dr·Arj·Dj·Yj e PFL = Dj·Ajr·Dr·Yr, estruturalmente
+    # simétricas. O fator Dj no PBL (antes ausente) é o multiplicador interno do próprio
+    # setor j; sem ele o PBL subestima em 1/(1-Ajj). Ver auditoria 2026-07-08.
+    PBL = float((Dr @ Arj @ Dj @ Yj).sum())   # ligação pura para trás
     PFL = float((Dj @ Ajr @ Dr @ Yr).sum())   # ligação pura para frente
     return {"PBL": PBL, "PFL": PFL, "PTL": PBL + PFL}
 
