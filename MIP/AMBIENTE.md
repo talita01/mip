@@ -55,7 +55,14 @@ Verificação no `.venv` de `~/FGV-Dev/mip/MIP` (não o venv oficial `~/.venvs/f
   roda no CI limpo. Trava: parsing fiel, filtragem de valores ausentes ("...", "..", "-"),
   construção da URL (sufixo `d/` muda com a tabela: 1846→0 decimais, 1620→2) e default de
   12 setores. `cnt.py` fonte não foi alterado.
-- Suíte: **40/40** testes passam em ~3s (com dados regionais presentes).
+- **CI em matriz de dois jobs** (`.github/workflows/testes.yml`): `faixas` (Python 3.11,
+  instala das faixas abstratas do `pyproject`) e `lock` (Python 3.13, instala do
+  `MIP/requirements.lock`). O verde do job `lock` significa que o ambiente fixado ainda
+  reproduz; o do job `faixas`, que o pacote instala do zero no Python mínimo suportado.
+  O lock oficial (numpy 2.5.1, scipy 1.18.0) reproduz a suíte em Python 3.13 — verificado
+  em venv limpo; **exige Python ≥3.12** (numpy 2.5.1 não tem wheel para 3.11).
+- Contagem: **40/40** local (dados regionais presentes); **26/26** num runner limpo de CI,
+  onde o `conftest` pula os 14 testes regionais (matrizes IIOAS não-versionadas).
 
 ## Regenerar o lock (após mudar dependências)
 
