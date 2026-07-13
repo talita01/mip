@@ -1,0 +1,9 @@
+BEVAP — decomposicao de impacto (VERTENTE ILUSTRATIVA)
+Base 2019 | SP x RB | choque R$ 1,000 mi | alpha=1.0 | rho=0.706309
+
+conta                       Tipo I       Tipo II      induzido
+producao                   2124.42       2768.38        643.95
+valor_adicionado           1000.00       1376.13        376.13
+remuneracoes                245.84        376.13        130.29
+impostos_producao            18.44         23.71          5.27
+emprego                    6975.37      12641.62       5666.26

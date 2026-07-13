@@ -1,0 +1,9 @@
+# mip / mipcore — LOCK verificado (pip freeze de venv limpo, 28 testes OK)
+# Python 3.11.15. Gerado 2026-07. Reproduz o ambiente que roda hoje.
+# Uso: python -m venv .venv && .venv/bin/pip install -e mip/MIP && .venv/bin/pip install -r requirements.lock
+numpy==2.4.6
+pandas==3.0.3
+scipy==1.17.1
+xlrd==2.0.2
+openpyxl==3.1.5
+pytest==9.1.1
